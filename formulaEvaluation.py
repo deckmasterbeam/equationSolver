@@ -1,4 +1,5 @@
 
+import argparse
 import re
 from typing import Literal, Union, cast
 
@@ -9,7 +10,8 @@ EvalFormulaType = Union[SubFormulaType, 'Formula.PlainTextFormula', None]
 variablesType = dict[str, Union[bool, int, float]]
 
 booleanOperators = Literal['OR', 'AND']
-arithmeticOperators = Literal['+', '-', '*', '/']
+arithmeticOperatorsType = Literal['+', '-', '*', '/']
+arithmeticOperators = ('+', '-', '*', '/')
 relationalOperators = Literal['==', '!=', '<', '<=', '>', '>=']
 
 class Formula:
@@ -54,11 +56,11 @@ class Formula:
   
   class ArithmeticFormula:
     type: Literal['ArithmeticFormula']
-    operator: Literal['+', '-', '*', '/']
+    operator: arithmeticOperatorsType
     left: SubFormulaType
     right: SubFormulaType
 
-    def __init__(self, operator: Literal['+', '-', '*', '/'], left: SubFormulaType, right: SubFormulaType) -> None:
+    def __init__(self, operator: arithmeticOperatorsType, left: SubFormulaType, right: SubFormulaType) -> None:
       self.type = 'ArithmeticFormula'
       self.operator = operator
       self.left = left
@@ -302,7 +304,7 @@ class Formula:
         if token in ['+', '-', '*', '/']:
           right = stack.pop()
           left = stack.pop()
-          stack.append(Formula.ArithmeticFormula(cast(arithmeticOperators, token), left, right))
+          stack.append(Formula.ArithmeticFormula(cast(arithmeticOperatorsType, token), left, right))
         else:
           stack.append(self._parse_term(token))
 
@@ -342,5 +344,35 @@ RelationalOperatorFormula = Formula.RelationalOperatorFormula
 PlainTextFormula = Formula.PlainTextFormula
 ArithmeticFormula = Formula.ArithmeticFormula
 
-# TODO
-# 2. solve math equations in the formula, ex: 2 + 3 * 4 => 14, x + y => 15 (if x=10 and y=5)
+
+def parse_cli_variables(variable_args: list[str]) -> dict[str, Union[bool, int, float]]:
+  result: dict[str, Union[bool, int, float]] = {}
+  for variable in variable_args:
+    if '=' not in variable:
+      raise ValueError(f"Invalid variable assignment: {variable}. Use name=value")
+    name, raw_value = variable.split('=', 1)
+    normalized = raw_value.strip()
+    if normalized.lower() in ('true', 'false'):
+      result[name] = normalized.lower() == 'true'
+    elif re.fullmatch(r'\d+\.\d+', normalized):
+      result[name] = float(normalized)
+    elif re.fullmatch(r'\d+', normalized):
+      result[name] = int(normalized)
+    else:
+      raise ValueError(f"Unsupported variable value type for {name}: {raw_value}")
+  return result
+
+
+def main() -> None:
+  parser = argparse.ArgumentParser(description='Evaluate a plain-text formula.')
+  parser.add_argument('formula', help='Plain text formula, e.g. "x + 3 AND y > 1"')
+  parser.add_argument('-v', '--var', action='append', default=[], help='Variable assignment in the form name=value', metavar='name=value')
+  args = parser.parse_args()
+
+  variables = parse_cli_variables(args.var)
+  formula = Formula(Formula.PlainTextFormula(args.formula))
+  result = formula.evaluate_formula(variables)
+  print(result)
+
+if __name__ == '__main__':
+  main()

@@ -1,3 +1,4 @@
+import subprocess
 import unittest
 
 from formulaEvaluation import Formula, BooleanFormula, NumericFormula, VariableFormula, BooleanOperatorFormula, RelationalOperatorFormula, PlainTextFormula, ArithmeticFormula
@@ -92,6 +93,10 @@ class TestFormulaEvaluation(unittest.TestCase):
         }
         self.assertTrue(formula.evaluate_formula(variables))
 
+    def test_plain_text_formula_with_boolean(self):
+        formula = Formula(formula=PlainTextFormula("10 > 5 AND 10 < 20"))
+        self.assertTrue(formula.evaluate_formula({}))
+
     def test_arithmetic_formula(self):
         formula = Formula(formula=ArithmeticFormula(
             operator='+',
@@ -145,6 +150,11 @@ class TestFormulaEvaluation(unittest.TestCase):
             right=VariableFormula('z')
         ))
         self.assertTrue(formula.evaluate_formula(variables))
+
+    def test_cli_formula_evaluation(self):
+        result = subprocess.run(['py', 'formulaEvaluation.py', '"x + y - z"', '-v', 'x=6', '-v', 'y=5', '-v', 'z=10'], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout.strip(), '1')
 
 if __name__ == "__main__":
     unittest.main()
